@@ -26,40 +26,45 @@ run 'rm public/robots.txt'
 plugin 'link_to_with_prompt', :git => 'http://github.com/bhedana/link_to_with_prompt/'
 plugin 'link_to_remote_with_prompt', :git => 'git://github.com/randyinla/link_to_remote_with_prompt.git'
 
-if yes?('Include RSpec?')
+# BDD
+if yes?('Include BDD?')
   plugin 'rspec', :git => 'git://github.com/dchelimsky/rspec.git'
   plugin 'rspec-rails', :git => 'git://github.com/dchelimsky/rspec-rails.git'
+  plugin 'cucumber', :git => 'git://github.com/aslakhellesoy/cucumber.git'
   generate :rspec
 end
 
+# Pagination
 if yes?('Include pagination?')
   plugin 'will_paginate', :git => 'git://github.com/mislav/will_paginate'
 end
 
-if yes?('Include OpenID Authentication?')
-  plugin 'open_id_authentication', :git => 'git://github.com/rails/open_id_authentication.git'
-  gem 'ruby-openid', :lib => 'openid'
-end
-
-if yes?('Include Restful Authentication?')
+# Restful User Authentication
+if yes?('Include Restful User Authentication?')
   plugin 'restful-authentication', :git => 'git://github.com/technoweenie/restful-authentication.git'
   plugin 'role_requirement', :git => 'git://github.com/timcharper/role_requirement.git'
+  plugin 'open_id_authentication', :git => 'git://github.com/rails/open_id_authentication.git'
+  gem 'ruby-openid', :lib => 'openid'
   gem 'rubyist-aasm', :lib => 'aasm', :source => 'http://gems.github.com'
   generate('authenticated', 'user sessions --rspec --include-activation --stateful')
 end
 
+# Exception Notification
 if yes?('Include email-based Exception Notifier?')
   plugin 'exception_notifier', :git => 'git://github.com/rails/exception_notification.git'
 end
 
+# JQuery
 if yes?('Install JQuery?')
   run 'curl -L http://jqueryjs.googlecode.com/files/jquery-1.3.2.min.js > public/javascripts/jquery.js'
 end
 
+# gems:install
 if yes?('Run gems:install?')
   rake("gems:install", :sudo => true)
 end
 
+# local git repo
 if yes?('Create local git repository for app?')
   git :init
   run "touch tmp/.gitignore log/.gitignore vendor/.gitignore"
