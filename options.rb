@@ -15,7 +15,7 @@
 # ask(question) get feedback from user and use within templates. ie.answer = ask("what to call a user?")
 # yes?(question) do;end or no?(question)
 # git(:must => "-a love")
-
+#
 
 run 'echo Author: Randy Walker > README'
 run 'rm public/index.html'
