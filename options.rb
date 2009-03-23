@@ -77,11 +77,13 @@ if yes?("Allow 'remember me' for cookies?")
   run "perl -i -pe 's/<!-- Uncomment this if you want this functionality//' app/views/sessions/new.html.erb"
   run "perl -i -pe 's/-->//' app/views/sessions/new.html.erb"
 end
+run "perl -i -pe 's/(:content_method => :login %><\\/div>)/$1\n <div id=\"user-bar-admin\"> | <%= link_to \"Users\", users_path %> | <\\/div>/' app/views/users/_user_bar.html.erb"
 run "perl -i -pe 's/\\<div id=\"user-bar-greeting\"\\>\\<\\%= link_to_login_with_IP .Not logged in., :style => .border: none;. \\%\\>\\<\\/div\\>//' app/views/users/_user_bar.html.erb"
-run "perl -i -pe 's/(ApplicationController < ActionController::Base)/$1\n  include AuthenticatedSystem\n/' app/controllers/application_controller.rb"
+run "perl -i -pe 's/(ApplicationController < ActionController::Base)/$1\n  include AuthenticatedSystem\n  include AuthenticatedSystemAddOns/' app/controllers/application_controller.rb"
 run "perl -i -pe 's/include AuthenticatedSystem//' app/controllers/users_controller.rb"
 run "perl -i -pe 's/include AuthenticatedSystem//' app/controllers/sessions_controller.rb"
 run "perl -i -pe 's/(include Authorization::AasmRoles)/$1\n  include AuthorizationAddOns::Forgot/' app/models/user.rb"
+run "perl -i -pe 's/(AuthorizationAddOns::Forgot)/$1\n\n  has_many :permissions\n  has_many :roles, :through => :permissions/' app/models/user.rb"
 run "perl -i -pe 's/# before_filter :admin_required/before_filter :check_administrator_role/' app/controllers/users_controller.rb"
 run "perl -i -pe 's/(before_filter :find_user, :only =\\> \\[:suspend, :unsuspend, :destroy, :purge\\])/$1\n\n  def index\n    \\@users = User.all\n  end\n\n  def show\n    \\@user = current_user\n  end\n\n  def edit\n    \\@user = current_user\n  end/' app/controllers/users_controller.rb"
 run "perl -i -pe 's/map.resources :users/map.resources :users, :member => { :suspend => :put, :unsuspend => :put, :purge => :delete }/' config/routes.rb"
@@ -243,6 +245,7 @@ file 'app/views/users/edit.html.erb', <<-CODE
 CODE
 file 'app/views/users/index.html.erb', <<-CODE
 <h2>All Users</h2>
+<%= link_to "new user", new_user_path %>
 <table>
   <tr>
     <th>Username</th>
@@ -264,9 +267,9 @@ file 'app/views/users/_user.html.erb', <<-CODE
   <td><%= user.enabled ? 'yes' : 'no' %>
     <% unless user == current_user %>
       <% if user.enabled %>
-        <%= link_to('disable', suspend_user_path(user.id), :method => :put) %>
+        <%= link_to('suspend', suspend_user_path(user.id), :method => :put) %>
       <% else %>
-        <%= link_to('enable', unsuspend_user_path(user.id), :method => :put) %>
+        <%= link_to('unsuspend', unsuspend_user_path(user.id), :method => :put) %>
       <% end %>
     <% end %>
   </td>
@@ -355,7 +358,7 @@ module ApplicationHelper
 end
 CODE
 file "public/stylesheets/#{app_name}.css", <<-CODE
-div#user-bar-greeting, div#user-bar-action {
+div#user-bar-greeting, div#user-bar-action, div#user-bar-admin {
 float:left;
 margin:0 5px 0 0;
 }
