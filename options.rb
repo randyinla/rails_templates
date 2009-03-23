@@ -20,6 +20,7 @@
 pswd = ask("Enter db password:")
 domainurl = ask("Enter domain URL:") 
 emailserver = ask("Enter email server:")
+adminlogin = ask("Enter admin login:")
 adminemail = ask("Enter admin email address:").gsub('@', '\\@')
 app_name = "#{(run  'pwd').split('/')[-1].chomp}"
 run "echo Author: Randy Walker #{Time.now()} > README"
@@ -92,6 +93,85 @@ class AddPasswordResetCodeToUsersTable < ActiveRecord::Migration
   end
 end
 CODE
+file "app/controllers/roles_controller.rb", <<-CODE
+class RolesController < ApplicationController
+  layout 'application'
+  #before_filter :check_administrator_role
+ 
+  def index
+    @user = User.find(params[:user_id])
+    @all_roles = Role.find(:all)
+  end
+ 
+  def update
+    @user = User.find(params[:user_id])
+    @role = Role.find(params[:id])
+    unless @user.has_role?(@role.rolename)
+      @user.roles << @role
+    end
+    redirect_to :action => 'index'
+  end
+  
+  def destroy
+    @user = User.find(params[:user_id])
+    @role = Role.find(params[:id])
+    if @user.has_role?(@role.rolename)
+      @user.roles.delete(@role)
+    end
+    redirect_to :action => 'index'
+  end
+end
+CODE
+
+file "db/migrate/#{Time.now.utc.strftime('%Y%m%d%H%M%S').to_i + 15}_create_roles.rb", <<-CODE
+class CreateRoles < ActiveRecord::Migration
+  def self.up
+    create_table :roles, :force => true do |t|
+      t.string :rolename
+      t.timestamps
+    end
+  end
+
+  def self.down
+    drop_table :roles
+  end
+end
+CODE
+file "db/migrate/#{Time.now.utc.strftime('%Y%m%d%H%M%S').to_i + 20}_create_permissions.rb", <<-CODE
+class CreatePermissions < ActiveRecord::Migration
+  def self.up
+    create_table :permissions, :force => true do |t|
+       t.integer :role_id, :user_id, :null => false
+       t.timestamps
+    end
+    #Make sure the role migration file was generated first    
+    Role.create(:rolename => 'administrator')
+    #Then, add default admin user
+    #Be sure change the password later or in this migration file
+    user = User.new
+    user.login = '#{adminlogin}'
+    user.email = '#{adminemail.gsub('\@', '@')}'
+    user.password = 'password'
+    user.password_confirmation = 'password'
+    user.state = 'pending'
+    user.save(false)
+    user.send(:activate!)
+    role = Role.find_by_rolename('administrator')
+    user = User.find_by_login('#{adminlogin}')
+    permission = Permission.new
+    permission.role = role
+    permission.user = user
+    permission.save(false)
+  end
+
+  def self.down
+    drop_table :permissions
+    Role.find_by_rolename('administrator').destroy   
+    User.find_by_login('#{adminlogin}').destroy   
+  end
+end
+CODE
+
 file 'app/models/user_mailer.rb', <<-CODE
 class UserMailer < ActionMailer::Base
   def signup_notification(user)
@@ -135,6 +215,19 @@ class UserObserver < ActiveRecord::Observer
   end
 end
 CODE
+file 'app/models/role.rb', <<-CODE
+class Role < ActiveRecord::Base
+  has_many :permissions
+  has_many :users, :through => :permissions
+end
+CODE
+file 'app/models/permission.rb', <<-CODE
+class Permission < ActiveRecord::Base
+  belongs_to :user
+  belongs_to :role
+end
+CODE
+
 
 # Domain & Email settings
 run "perl -i -pe 's/(\\|config\\|)/$1\n  DOMAIN_URL = \"#{domainurl}\"\n  EMAIL_SERVER = \"#{emailserver}\"\n  ADMIN_EMAIL = \"#{adminemail}\"\n  config.active_record.observers = :user_observer\n/' config/environment.rb"
