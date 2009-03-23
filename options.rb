@@ -82,6 +82,9 @@ run "perl -i -pe 's/(ApplicationController < ActionController::Base)/$1\n  inclu
 run "perl -i -pe 's/include AuthenticatedSystem//' app/controllers/users_controller.rb"
 run "perl -i -pe 's/include AuthenticatedSystem//' app/controllers/sessions_controller.rb"
 run "perl -i -pe 's/(include Authorization::AasmRoles)/$1\n  include AuthorizationAddOns::Forgot/' app/models/user.rb"
+run "perl -i -pe 's/# before_filter :admin_required/before_filter :check_administrator_role/' app/controllers/users_controller.rb"
+run "perl -i -pe 's/(before_filter :find_user, :only =\\> \\[:suspend, :unsuspend, :destroy, :purge\\])/$1\n\n  def index\n    \\@users = User.all\n  end\n\n  def show\n    \\@user = current_user\n  end\n\n  def edit\n    \\@user = current_user\n  end/' app/controllers/users_controller.rb"
+run "perl -i -pe 's/map.resources :users/map.resources :users, :member => { :suspend => :put, :unsuspend => :put, :purge => :delete }/' config/routes.rb"
 route "map.activate '/activate/:activation_code', :controller => 'users', :action => 'activate', :activation_code => nil"
 file "db/migrate/#{Time.now.utc.strftime('%Y%m%d%H%M%S').to_i + 10}_add_password_reset_code_to_users_table.rb", <<-CODE
 class AddPasswordResetCodeToUsersTable < ActiveRecord::Migration
@@ -226,6 +229,49 @@ class Permission < ActiveRecord::Base
   belongs_to :user
   belongs_to :role
 end
+CODE
+file 'app/views/users/edit.html.erb', <<-CODE
+<h2>Edit Your Account</h2>
+<p><%= link_to 'Show Profile', user_path(@user) %> | <%= link_to 'Change Password', change_password_path %></p>
+<%= error_messages_for :user %>
+
+<% form_for :user, :url => user_url(@user), :html => { :method => :put } do |f| %>
+ <p>Email:<br /><%= f.text_field :email, :size => 60 %></p>
+ 
+<%= submit_tag 'Save' %>
+<% end %>
+CODE
+file 'app/views/users/index.html.erb', <<-CODE
+<h2>All Users</h2>
+<table>
+  <tr>
+    <th>Username</th>
+    <th>Email</th>
+    <th>Enabled?</th>
+    <th>Roles</th>
+  </tr>
+    <%= render :partial => 'user', :collection => @users %>
+</table>
+CODE
+file 'app/views/users/show.html.erb', <<-CODE
+<h2>User: <%=h @user.login %></h2>
+<p>Joined on: <%= @user.created_at.to_s(:long) %></p>
+CODE
+file 'app/views/users/_user.html.erb', <<-CODE
+<tr class="<%= cycle('odd', 'even') %>">
+  <td><%=h user.login %></td>
+  <td><%=h user.email %></td>
+  <td><%= user.enabled ? 'yes' : 'no' %>
+    <% unless user == current_user %>
+      <% if user.enabled %>
+        <%= link_to('disable', suspend_user_path(user.id), :method => :put) %>
+      <% else %>
+        <%= link_to('enable', unsuspend_user_path(user.id), :method => :put) %>
+      <% end %>
+    <% end %>
+  </td>
+ <td>edit roles</td>
+</tr>
 CODE
 
 
