@@ -22,6 +22,7 @@ domainurl = ask("Enter domain URL:")
 emailserver = ask("Enter email server:")
 adminlogin = ask("Enter admin login:")
 adminemail = ask("Enter admin email address:").gsub('@', '\\@')
+adminemailpswd = ask("Enter admin email password")
 app_name = "#{(run  'pwd').split('/')[-1].chomp}"
 run "echo Author: Randy Walker #{Time.now()} > README"
 
@@ -68,6 +69,7 @@ plugin 'restful-authentication', :git => 'git://github.com/technoweenie/restful-
 plugin 'open_id_authentication', :git => 'git://github.com/rails/open_id_authentication.git'
 plugin 'aasm', :git => 'git://github.com/rubyist/aasm.git'
 plugin 'ra_add_ons', :git => 'git://github.com/randyinla/ra_add_ons.git'
+plugin 'action_mailer_tls', :git => "git://github.com/openrain/action_mailer_tls.git -r 'tag v1.0.0'"
 gem 'ruby-openid', :lib => 'openid'
 generate('authenticated', 'user sessions --rspec --include-activation --aasm')
 
@@ -279,19 +281,21 @@ CODE
 
 
 # Domain & Email settings
-run "perl -i -pe 's/(\\|config\\|)/$1\n  DOMAIN_URL = \"#{domainurl}\"\n  EMAIL_SERVER = \"#{emailserver}\"\n  ADMIN_EMAIL = \"#{adminemail}\"\n  config.active_record.observers = :user_observer\n/' config/environment.rb"
-file 'config/initializers/mail.rb', <<-CODE
-ActionMailer::Base.delivery_method = :smtp
-ActionMailer::Base.smtp_settings = {
-   :address => EMAIL_SERVER,
-   :port => 25,
-   :domain => DOMAIN_URL, 
-   #:authentication => :login,
-   #:user_name => "mail@yourapplication.com"
-   #:password => "your_password"
-}
+run "perl -i -pe 's/(\\|config\\|)/$1\n  DOMAIN_URL = \"#{domainurl}\"\n  EMAIL_SERVER = \"#{emailserver}\"\n  ADMIN_EMAIL = \"#{adminemail}\"\n  ADMIN_EMAIL_PSWD = \"#{adminemailpswd}\"\n  config.active_record.observers = :user_observer\n/' config/environment.rb"
+file 'config/initializers/smtp_gmail.rb', <<-CODE
+require "smtp_tls"
+mailer_config = File.open("\#{RAILS_ROOT}/config/mailer.yml") 
+mailer_options = YAML.load(mailer_config) 
+ActionMailer::Base.smtp_settings = mailer_options
 CODE
-
+file 'config/mailer.yml', <<-CODE
+--- 
+  :address: #{emailserver}
+  :port: 587
+  :user_name: #{adminemail.gsub('\@', '@')}
+  :password: #{adminemailpswd}
+  :authentication: :plain
+CODE
 # static pages setup
 file 'app/controllers/static_pages_controller.rb', <<-CODE
 class StaticPagesController < ApplicationController
